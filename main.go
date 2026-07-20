@@ -9,6 +9,8 @@ import (
 	"github.com/haseebfr02/terraform-provider-zicon/internal/provider"
 )
 
+//go:generate go tool tfplugindocs generate
+
 // version is set via -ldflags at release build time; it defaults to "dev"
 // for local builds.
 var version = "dev"

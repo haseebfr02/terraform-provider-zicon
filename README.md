@@ -75,6 +75,62 @@ Terraform at your local build with a [CLI configuration override](https://develo
 - **Update** — not supported by the API. `name`, `category`, and `description` all use
   `RequiresReplace`, so any change destroys and recreates the project.
 
+## Documentation
+
+Registry-facing documentation lives in [`docs/`](docs/) and is generated from the resource/provider
+schema descriptions plus the example `.tf` files under [`examples/`](examples/) using
+[`tfplugindocs`](https://github.com/hashicorp/terraform-plugin-docs). The Terraform Registry requires
+this `docs/` folder to be present and up to date at the tagged commit.
+
+`tfplugindocs` is declared as a Go tool dependency (see the `tool` directive in `go.mod`), so no
+separate install step is needed — regenerate the docs after changing any schema `Description` or
+the files under `examples/provider/` and `examples/resources/<name>/`:
+
+```sh
+go generate ./...
+```
+
+Commit the resulting changes under `docs/` along with your schema change.
+
+## Releasing
+
+Releases are built and published automatically by [GoReleaser](https://goreleaser.com/) via the
+[`.github/workflows/release.yml`](.github/workflows/release.yml) GitHub Actions workflow, following
+[HashiCorp's provider release process](https://developer.hashicorp.com/terraform/registry/providers/publishing).
+
+The workflow triggers whenever a tag matching `v*` (e.g. `v0.1.0`) is pushed to the repository:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+It then:
+
+1. Checks out the full history (required so GoReleaser can generate a changelog/version info).
+2. Builds binaries for `darwin`, `linux`, and `windows`, each for `amd64` and `arm64`.
+3. Zips each binary and generates a `SHA256SUMS` checksum file, alongside the
+   [`terraform-registry-manifest.json`](terraform-registry-manifest.json) manifest (protocol version 6,
+   matching the Terraform Plugin Framework).
+4. GPG-signs the checksum file (`SHA256SUMS.sig`) — the Terraform Registry requires this signature to
+   verify release artifacts.
+5. Publishes everything as a GitHub Release.
+
+### Required GitHub secrets
+
+The workflow needs a GPG key to sign release checksums. The corresponding public key
+([`public-key.asc`](public-key.asc)) must also be added to your account/organization on the
+[Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing#generate-a-gpg-key)
+so it can verify releases.
+
+| Secret             | Description                                                                 |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `GPG_PRIVATE_KEY`   | The ASCII-armored private key (`gpg --armor --export-secret-keys <key-id>`). |
+| `PASSPHRASE`        | The passphrase protecting the private key.                                   |
+
+Set these under **Settings → Secrets and variables → Actions** in the GitHub repository.
+`GITHUB_TOKEN` is provided automatically by GitHub Actions and does not need to be configured.
+
 ## Example
 
 See [`examples/main.tf`](examples/main.tf):
